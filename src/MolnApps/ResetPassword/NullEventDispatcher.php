@@ -6,7 +6,7 @@ use \MolnApps\ResetPassword\Contracts\EventDispatcher;
 
 class NullEventDispatcher implements EventDispatcher
 {
-	public function notify($event, array $context = [])
+	public function fireEvent($event, array $context = [])
 	{
 		// Do nothing
 	}
