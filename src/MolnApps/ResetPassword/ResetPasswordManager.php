@@ -28,6 +28,8 @@ class ResetPasswordManager
 			return;
 		}
 
+		$this->repository->deleteAllTokens($username);
+
 		$token = $this->tokenFactory->getNewToken();
 
 		$this->repository->storeToken([
@@ -56,7 +58,7 @@ class ResetPasswordManager
 
 		$this->eventDispatcher->fireEvent('passwordWasReset', ['username' => $username]);
 
-		$this->repository->deleteToken($username);
+		$this->repository->deleteAllTokens($username);
 	}
 
 	private function validateToken($username, $cleanToken)

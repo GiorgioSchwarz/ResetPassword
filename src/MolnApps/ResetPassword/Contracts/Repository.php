@@ -8,6 +8,6 @@ interface Repository
 	public function storePassword($username, $password);
 	
 	public function getAllTokens($username);
+	public function deleteAllTokens($username);
 	public function storeToken(array $row);
-	public function deleteToken($username);
 }

@@ -26,12 +26,13 @@ class BaseTokenTest extends \PHPUnit_Framework_TestCase
 	}
 
 	/** @test */
-	public function it_returns_unencrypted_token()
+	public function it_returns_alnum_unencrypted_token()
 	{
 		$token = new BaseToken(strtotime('+1 day'));
 
 		$this->assertNotNull($token->getCleanToken());
 		$this->assertNotEquals($token->getCleanToken(), $token->getToken());
+		$this->assertTrue(ctype_alnum($token->getCleanToken()));
 	}
 
 	/** @test */

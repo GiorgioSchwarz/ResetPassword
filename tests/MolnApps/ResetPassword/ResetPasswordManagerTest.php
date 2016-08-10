@@ -31,6 +31,7 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 	{
 		$manager = $this->createResetPasswordManager();
 
+		$this->shouldDeleteAccountTokens('john.doe@example.com');
 		$this->shouldStoreToken('john.doe@example.com', 'abc123', strtotime('+1 day'));
 		$this->shouldFireEvent('tokenWasCreated', [
 			'username' => 'john.doe@example.com', 
@@ -140,7 +141,7 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 	{
 		$this->repository
 			->expects($this->once())
-			->method('deleteToken')
+			->method('deleteAllTokens')
 			->with($username);
 	}
 

@@ -18,7 +18,7 @@ class BaseToken implements Token, TokenValidator
 
 	private function generateNewToken()
 	{
-		$this->cleanToken = openssl_random_pseudo_bytes(64);
+		$this->cleanToken = hash('sha256', openssl_random_pseudo_bytes(64));
 
 		return password_hash($this->cleanToken, PASSWORD_BCRYPT);
 	}
