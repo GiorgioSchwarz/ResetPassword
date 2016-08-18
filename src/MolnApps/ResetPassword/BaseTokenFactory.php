@@ -18,6 +18,6 @@ class BaseTokenFactory implements TokenFactory
 
 	public function getTokenValidator($token, $expiration)
 	{
-		return new BaseToken($token, $expiration);
+		return new BaseToken($expiration, $token);
 	}
 }

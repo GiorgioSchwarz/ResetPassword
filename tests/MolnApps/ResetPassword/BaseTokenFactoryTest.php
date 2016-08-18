@@ -38,5 +38,7 @@ class BaseTokenFactoryTest extends \PHPUnit_Framework_TestCase
 		$tokenValidator = $tokenGenerator->getTokenValidator($token->getToken(), $token->getExpiration());
 
 		$this->assertInstanceOf(TokenValidator::class, $tokenValidator);
+
+		$this->assertTrue($tokenValidator->validate($token->getCleanToken()));
 	}
 }
