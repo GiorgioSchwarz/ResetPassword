@@ -2,37 +2,41 @@
 
 namespace MolnApps\ResetPassword;
 
-use \MolnApps\ResetPassword\Contracts\Repository;
+use \MolnApps\ResetPassword\Contracts\UserRepository;
+use \MolnApps\ResetPassword\Contracts\TokenRepository;
 use \MolnApps\ResetPassword\Contracts\TokenFactory;
 use \MolnApps\ResetPassword\Contracts\EventDispatcher;
 
 class ResetPasswordManager
 {
-	private $repository;
+	private $userRepository;
+	private $tokenRepository;
 	private $tokenFactory;
 	private $eventDispatcher;
 
 	public function __construct(
-		Repository $repository, 
+		UserRepository $userRepository, 
+		TokenRepository $tokenRepository,
 		TokenFactory $tokenFactory, 
 		EventDispatcher $eventDispatcher
 	) {
-		$this->repository = $repository;
+		$this->userRepository = $userRepository;
+		$this->tokenRepository = $tokenRepository;
 		$this->tokenFactory = $tokenFactory;
 		$this->eventDispatcher = $eventDispatcher;
 	}
 
 	public function createToken($username)
 	{
-		if ( ! $this->repository->accountExists($username)) {
-			return;
+		if ( ! $this->userRepository->accountExists($username)) {
+			return false;
 		}
 
-		$this->repository->deleteAllTokens($username);
+		$this->tokenRepository->deleteAllTokens($username);
 
 		$token = $this->tokenFactory->getNewToken();
 
-		$this->repository->storeToken([
+		$this->tokenRepository->storeToken([
 			'username' => $username,
 			'token' => $token->getToken(),
 			'expiration' => $token->getExpiration(),
@@ -42,28 +46,32 @@ class ResetPasswordManager
 			'username' => $username,
 			'token' => $token->getCleanToken()
 		]);
+
+		return true;
 	}
 
 	public function resetPassword($username, $cleanToken, $password)
 	{
-		if ( ! $this->repository->accountExists($username)) {
-			return;
+		if ( ! $this->userRepository->accountExists($username)) {
+			return false;
 		}
 
 		if ( ! $this->validateToken($username, $cleanToken)) {
-			return;
+			return false;
 		}
 		
-		$this->repository->storePassword($username, $password);
+		$this->userRepository->storePassword($username, $password);
 
 		$this->eventDispatcher->fireEvent('passwordWasReset', ['username' => $username]);
 
-		$this->repository->deleteAllTokens($username);
+		$this->tokenRepository->deleteAllTokens($username);
+
+		return true;
 	}
 
 	private function validateToken($username, $cleanToken)
 	{
-		$rows = $this->repository->getAllTokens($username);
+		$rows = $this->tokenRepository->getAllTokens($username);
 
 		foreach ($rows as $row) {
 			$token = $this->tokenFactory->getTokenValidator($row['token'], $row['expiration']);

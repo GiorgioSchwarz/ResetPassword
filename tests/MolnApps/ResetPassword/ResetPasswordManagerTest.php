@@ -2,7 +2,8 @@
 
 namespace MolnApps\ResetPassword;
 
-use \MolnApps\ResetPassword\Contracts\Repository;
+use \MolnApps\ResetPassword\Contracts\UserRepository;
+use \MolnApps\ResetPassword\Contracts\TokenRepository;
 use \MolnApps\ResetPassword\Contracts\TokenFactory;
 use \MolnApps\ResetPassword\Contracts\Token;
 use \MolnApps\ResetPassword\Contracts\TokenValidator;
@@ -10,18 +11,15 @@ use \MolnApps\ResetPassword\Contracts\EventDispatcher;
 
 class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 {
-	private $repository;
+	private $userRepository;
+	private $tokenRepository;
 	private $tokenGenerator;
 	private $eventDispatcher;
 
 	/** @test */
 	public function it_can_be_instantiated()
 	{
-		$repository = $this->createMock(Repository::class);
-		$tokenGenerator = $this->createMock(TokenFactory::class);
-		$eventDispatcher = $this->createMock(EventDispatcher::class);
-
-		$manager = new ResetPasswordManager($repository, $tokenGenerator, $eventDispatcher);
+		$manager = $this->createResetPasswordManager();
 
 		$this->assertNotNull($manager);
 	}
@@ -38,7 +36,9 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 			'token' => 'abc'
 		]);
 
-		$manager->createToken('john.doe@example.com');
+		$result = $manager->createToken('john.doe@example.com');
+
+		$this->assertTrue($result);
 	}
 
 	/** @test */
@@ -49,7 +49,9 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 		$this->shouldNotStoreToken();
 		$this->shouldNotFireEvent('tokenWasCreated');
 
-		$manager->createToken('jane.doe@example.com');
+		$result = $manager->createToken('jane.doe@example.com');
+
+		$this->assertFalse($result);
 	}
 
 	/** @test */
@@ -61,7 +63,9 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 		$this->shouldFireEvent('passwordWasReset', ['username' => 'john.doe@example.com']);
 		$this->shouldDeleteAccountTokens('john.doe@example.com');
 
-		$manager->resetPassword('john.doe@example.com', 'abc123', 'New_Password_123');
+		$result = $manager->resetPassword('john.doe@example.com', 'abc123', 'New_Password_123');
+
+		$this->assertTrue($result);
 	}
 
 	/** @test */
@@ -72,7 +76,9 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 		$this->shouldNotStoreAccountPassword();
 		$this->shouldNotFireEvent('passwordWasReset');
 
-		$manager->resetPassword('jane.doe@example.com', 'abc123', 'New_Password_123');
+		$result = $manager->resetPassword('jane.doe@example.com', 'abc123', 'New_Password_123');
+
+		$this->assertFalse($result);
 	}
 
 	/** @test */
@@ -83,7 +89,9 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 		$this->shouldNotStoreAccountPassword();
 		$this->shouldNotFireEvent('passwordWasReset');
 
-		$manager->resetPassword('john.doe@example.com', 'foobar', 'New_Password_123');
+		$result = $manager->resetPassword('john.doe@example.com', 'foobar', 'New_Password_123');
+
+		$this->assertFalse($result);
 	}
 
 	/** @test */
@@ -94,25 +102,28 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 		$this->shouldNotStoreAccountPassword();
 		$this->shouldNotFireEvent('passwordWasReset');
 
-		$manager->resetPassword('john.doe@example.com', 'def456', 'New_Password_123');
+		$result = $manager->resetPassword('john.doe@example.com', 'def456', 'New_Password_123');
+
+		$this->assertFalse($result);
 	}
 
 	// ! Factory method
 
 	private function createResetPasswordManager()
 	{
-		$this->repository = $this->createRepositoryStub();
+		$this->userRepository = $this->createUserRepositoryStub();
+		$this->tokenRepository = $this->createTokenRepositoryStub();
 		$this->tokenGenerator = $this->createTokenFactoryStub();
 		$this->eventDispatcher = $this->createEventDispatcherStub();
 
-		return new ResetPasswordManager($this->repository, $this->tokenGenerator, $this->eventDispatcher);
+		return new ResetPasswordManager($this->userRepository, $this->tokenRepository, $this->tokenGenerator, $this->eventDispatcher);
 	}
 
 	// ! Prophecy methods
 
 	private function shouldStoreToken($username, $token, $expiration)
 	{
-		$this->repository
+		$this->tokenRepository
 			->expects($this->once())
 			->method('storeToken')
 			->with([
@@ -124,14 +135,14 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 
 	private function shouldNotStoreToken()
 	{
-		$this->repository
+		$this->tokenRepository
 			->expects($this->never())
 			->method('storeToken');
 	}
 
 	private function shouldStoreAccountPassword($username, $password)
 	{
-		$this->repository
+		$this->userRepository
 			->expects($this->once())
 			->method('storePassword')
 			->with($username, $password);
@@ -139,7 +150,7 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 
 	private function shouldDeleteAccountTokens($username)
 	{
-		$this->repository
+		$this->tokenRepository
 			->expects($this->once())
 			->method('deleteAllTokens')
 			->with($username);
@@ -147,7 +158,7 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 
 	private function shouldNotStoreAccountPassword()
 	{
-		$this->repository
+		$this->userRepository
 			->expects($this->never())
 			->method('storePassword');
 	}
@@ -170,9 +181,9 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 
 	// ! Stub factory methods
 
-	private function createRepositoryStub()
+	private function createUserRepositoryStub()
 	{
-		$repository = $this->createMock(Repository::class);
+		$repository = $this->createMock(UserRepository::class);
 
 		$map = [
 			['john.doe@example.com', true],
@@ -183,15 +194,22 @@ class ResetPasswordManagerTest extends \PHPUnit_Framework_TestCase
 			->method('accountExists')
 			->will($this->returnValueMap($map));
 
+		return $repository;
+	}
+
+	private function createTokenRepositoryStub()
+	{
+		$tokenRepository = $this->createMock(TokenRepository::class);
+
 		$map = [
 			['john.doe@example.com', [$this->getExpiredTokenRow(), $this->getValidTokenRow()]],
 		];
 
-		$repository
+		$tokenRepository
 			->method('getAllTokens')
 			->will($this->returnValueMap($map));
 
-		return $repository;
+		return $tokenRepository;
 	}
 
 	private function getExpiredTokenRow()
